@@ -1,0 +1,64 @@
+# Import required libraries
+from twilio.rest import Client
+import os
+from twilio.jwt.access_token import AccessToken
+from twilio.jwt.access_token.grants import VideoGrant
+from flask import Flask, jsonify, request
+
+# Initialize Flask application
+app = Flask(__name__)
+
+# Set Twilio API keys
+account_sid = 'your_account_sid'
+auth_token = 'your_auth_token'
+api_key_sid = 'your_api_key_sid'
+api_key_secret = 'your_api_key_secret'
+
+# Set Twilio phone number
+twilio_phone_number = '+123456789'
+
+# Initialize Twilio client
+client = Client(account_sid, auth_token)
+
+# Set up access token for video chat
+def get_access_token(identity):
+    # Create an Access Token
+    token = AccessToken(api_key_sid, api_key_secret, identity=identity)
+
+    # Create a Video grant and add to token
+    video_grant = VideoGrant(room='MyRoom')
+    token.add_grant(video_grant)
+
+    # Return token as string
+    return token.to_jwt().decode()
+
+# Endpoint for patients to request a video call
+@app.route('/call', methods=['POST'])
+def call():
+    # Get patient's identity from request
+    identity = request.json['identity']
+
+    # Get doctor's phone number from database
+    doctor_phone_number = get_doctor_phone_number(identity)
+
+    # Create a Twilio video room
+    room = client.video.rooms.create(unique_name='MyRoom')
+
+    # Create a Twilio video participant for patient
+    patient_participant = client.video.rooms(room.sid).participants.create(identity=identity)
+
+    # Create a Twilio video participant for doctor
+    doctor_participant = client.video.rooms(room.sid).participants.create(to=doctor_phone_number)
+
+    # Get access token for patient and return as response
+    access_token = get_access_token(identity)
+    return jsonify({'access_token': access_token})
+
+# Function to get doctor's phone number from database
+def get_doctor_phone_number(identity):
+    # Query database to get doctor's phone number based on patient's identity
+    return '+11234567890'
+
+# Run Flask application
+if __name__ == '__main__':
+    app.run(debug=True)
